@@ -7,7 +7,7 @@ omega_r = 1.0;
 
 % -------------------------------------------------------------------------
 % material properties and input data
-kappa = 1.0;
+%kappa = 1.0;
 
 % exact solution
 exact = @(x) sin(x);
@@ -15,7 +15,7 @@ exact_x = @(x) cos(x);
 
 f = @(x) 0.0; %kappa * sin(x);
 h = @(x) 0.0; %-kappa;
-g = @(x) sin(1);
+g = @(x) 1.0; %sin(1);
 % -------------------------------------------------------------------------
 
 % interpolation degree
@@ -122,37 +122,37 @@ uh = K \ F;
 % Append the displacement vector by the Dirichlet data
 uh = [ uh; g(omega_r) ];
 
-% Now we do the postprocessing
-nqp = 6;
-[qp, wq] = Gauss(nqp, -1, 1);
-
-top = 0.0; bot = 0.0;
-for ee = 1 : nElem
-    for qua = 1 : nqp
-        x_ele = zeros(n_en, 1);
-        u_ele = zeros(n_en, 1);
-        for aa = 1 : n_en
-            x_ele(aa) = x_coor(IEN(aa, ee));
-            u_ele(aa) = uh(IEN(aa, ee));
-        end
-        
-        x = 0.0; dx_dxi = 0.0; duh_dxi = 0.0;
-        for aa = 1 : n_en
-            x = x + x_ele(aa) * PolyBasis(pp, aa, 0, qp(qua));
-            dx_dxi = dx_dxi + x_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
-            duh_dxi = duh_dxi + u_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
-        end
-        
-        dxi_dx = 1.0 / dx_dxi;
-        
-        top = top + wq(qua) * (duh_dxi * dxi_dx - exact_x(x))^2 * dx_dxi;
-        bot = bot + wq(qua) * exact_x(x)^2 * dx_dxi;
-    end
-end
-
-top = sqrt(top);
-bot = sqrt(bot);
-
-error = top / bot;
+% % Now we do the postprocessing
+% nqp = 6;
+% [qp, wq] = Gauss(nqp, -1, 1);
+% 
+% top = 0.0; bot = 0.0;
+% for ee = 1 : nElem
+%     for qua = 1 : nqp
+%         x_ele = zeros(n_en, 1);
+%         u_ele = zeros(n_en, 1);
+%         for aa = 1 : n_en
+%             x_ele(aa) = x_coor(IEN(aa, ee));
+%             u_ele(aa) = uh(IEN(aa, ee));
+%         end
+%         
+%         x = 0.0; dx_dxi = 0.0; duh_dxi = 0.0;
+%         for aa = 1 : n_en
+%             x = x + x_ele(aa) * PolyBasis(pp, aa, 0, qp(qua));
+%             dx_dxi = dx_dxi + x_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
+%             duh_dxi = duh_dxi + u_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
+%         end
+%         
+%         dxi_dx = 1.0 / dx_dxi;
+%         
+%         top = top + wq(qua) * (duh_dxi * dxi_dx - exact_x(x))^2 * dx_dxi;
+%         bot = bot + wq(qua) * exact_x(x)^2 * dx_dxi;
+%     end
+% end
+% 
+% top = sqrt(top);
+% bot = sqrt(bot);
+% 
+% error = top / bot;
 
 % EOF
