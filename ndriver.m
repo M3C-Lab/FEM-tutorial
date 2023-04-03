@@ -13,19 +13,19 @@ omega_r = 1.0;
 exact = @(x) sin(x);
 exact_x = @(x) cos(x);
 
-f = @(x) 0.0; %kappa * sin(x);
-h = @(x) 0.0; %-kappa;
-g = @(x) 1.0; %sin(1);
+f = @(x) -2.0*cos(x)*cos(x)*sin(x) + sin(x)*(sin(x)*sin(x) + 1.0);
+h = @(x) -1.0; %-kappa;
+g = @(x) sin(1);
 % -------------------------------------------------------------------------
 
 % interpolation degree
-pp = 1;
+pp = 6;
 
 % number of elements
-nElem = 5;
+nElem = 40;
 
 % quadrature rule
-nqp = pp + 1;
+nqp = 6; %pp + 1;
 [qp, wq] = Gauss(nqp, -1, 1);
 
 n_np = nElem * pp + 1; % number of nodal points
@@ -53,106 +53,132 @@ ID(end) = 0;
 % Dirichlet nodes
 n_eq = n_np - 1;
 
-% Allocate an empty stiffness matrix and load vector
-K = sparse(n_eq, n_eq);
-F = zeros(n_eq, 1);
+uu = zeros(n_eq, 1);
+dd = [ uu; g(omega_r) ];
 
-% Assembly the siffness matrix and load vector
-for ee = 1 : nElem
+counter = 0;
+nmax    = 20;
+error   = 1.0;
+
+while counter < nmax && error > 1.0e-20
+  % Allocate an empty stiffness matrix and load vector
+  K = sparse(n_eq, n_eq);
+  F = zeros(n_eq, 1);
+  
+  % Assembly the siffness matrix and load vector
+  for ee = 1 : nElem
     % Allocate zero element stiffness matrix and element load vector
     k_ele = zeros(n_en, n_en);
     f_ele = zeros(n_en, 1);
     
     x_ele = zeros(n_en, 1);
+    d_ele = zeros(n_en, 1);
     for aa = 1 : n_en
-        x_ele(aa) = x_coor( IEN(aa,ee) );
+      x_ele(aa) = x_coor( IEN(aa, ee) );
+      d_ele(aa) = dd( IEN(aa, ee) );
     end
     
     for qua = 1 : nqp
-        % geometrical mapping
-        x_qua = 0.0;
-        dx_dxi = 0.0;
-        for aa = 1 : n_en
-            x_qua = x_qua + x_ele(aa) * PolyBasis(pp, aa, 0, qp(qua));
-            dx_dxi = dx_dxi + x_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
+      % geometrical mapping
+      x_qua    = 0.0;
+      dx_dxi   = 0.0;
+      u_qua    = 0.0;
+      u_xi     = 0.0;
+      for aa = 1 : n_en
+        x_qua    = x_qua  + x_ele(aa) * PolyBasis(pp, aa, 0, qp(qua));
+        dx_dxi   = dx_dxi + x_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
+        u_qua    = u_qua  + d_ele(aa) * PolyBasis(pp, aa, 0, qp(qua));
+        u_xi     = u_xi   + d_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
+      end
+      dxi_dx = 1.0 / dx_dxi;
+      
+      kappa = 1.0 + u_qua * u_qua;
+      dkappa = 2 * u_qua;
+      
+      for aa = 1 : n_en
+        Na    = PolyBasis(pp, aa, 0, qp(qua));
+        Na_xi = PolyBasis(pp, aa, 1, qp(qua));
+        f_ele(aa) = f_ele(aa) + wq(qua) * Na * f(x_qua) * dx_dxi;
+        f_ele(aa) = f_ele(aa) - wq(qua) * Na_xi * kappa * u_xi * dxi_dx;
+        for bb = 1 : n_en
+          Nb    = PolyBasis(pp, bb, 0, qp(qua));
+          Nb_xi = PolyBasis(pp, bb, 1, qp(qua));
+          k_ele(aa,bb) = k_ele(aa,bb) + wq(qua) * Na_xi * kappa * Nb_xi * dxi_dx;
+          k_ele(aa,bb) = k_ele(aa,bb) + wq(qua) * Na_xi * dkappa * Nb * u_xi * dxi_dx;
         end
-        dxi_dx = 1.0 / dx_dxi;
-        
-        for aa = 1 : n_en
-            Na    = PolyBasis(pp, aa, 0, qp(qua));
-            Na_xi = PolyBasis(pp, aa, 1, qp(qua));
-            f_ele(aa) = f_ele(aa) + wq(qua) * Na * f(x_qua) * dx_dxi;
-            for bb = 1 : n_en
-                Nb_xi = PolyBasis(pp, bb, 1, qp(qua));
-                k_ele(aa,bb) = k_ele(aa,bb) + wq(qua) * Na_xi * kappa * Nb_xi * dxi_dx;
-            end
-        end        
+      end
     end
     % end of the quadrature loop
     
     % distribute the entries to the global stiffness matrix and global load vector
     for aa = 1 : n_en
-        LM_a = ID( IEN(aa, ee) );
-        if LM_a > 0
-            F(LM_a) = F(LM_a) + f_ele(aa);
-            for bb = 1 : n_en
-                LM_b = ID( IEN(bb, ee) );
-                if LM_b > 0
-                    K(LM_a, LM_b) = K(LM_a, LM_b) + k_ele(aa, bb);
-                else
-                    x_qua = x_coor( IEN(bb,ee) ); % obtain the Dirichlet node's physical coordinates
-                    g_qua = g( x_qua ); % Obtain the boundary data at this point
-                    F( LM_a ) = F( LM_a ) - k_ele(aa, bb) * g_qua;
-                end
-            end
+      LM_a = ID( IEN(aa, ee) );
+      if LM_a > 0
+        F(LM_a) = F(LM_a) + f_ele(aa);
+        for bb = 1 : n_en
+          LM_b = ID( IEN(bb, ee) );
+          if LM_b > 0
+            K(LM_a, LM_b) = K(LM_a, LM_b) + k_ele(aa, bb);
+          else
+            %x_qua = x_coor( IEN(bb,ee) ); % obtain the Dirichlet node's physical coordinates
+            %g_qua = g( x_qua ); % Obtain the boundary data at this point
+            %F( LM_a ) = F( LM_a ) - k_ele(aa, bb) * g_qua;
+          end
         end
+      end
     end
     
     % Modify the load vector by the Natural BC
     % Note: for multi-dimensional cases, one needs to perform line or
     % surface integration for the natural BC.
     if ee == 1
-        F( ID(IEN(1, ee)) ) = F( ID(IEN(1, ee)) ) + h( x_coor(IEN(1,ee)));
-    end   
+      F( ID(IEN(1, ee)) ) = F( ID(IEN(1, ee)) ) + h( x_coor(IEN(1,ee)));
+    end
+  end
+  
+  % Solve the stiffness matrix problem
+  incremental = K \ F;
+  uu = uu + incremental;
+  dd = [ uu; g(omega_r) ];
+  
+  error = norm(F);
+  counter = counter + 1;
 end
 
-% Solve the stiffness matrix problem
-uh = K \ F;
-
 % Append the displacement vector by the Dirichlet data
-uh = [ uh; g(omega_r) ];
+uh = dd;
 
-% % Now we do the postprocessing
-% nqp = 6;
-% [qp, wq] = Gauss(nqp, -1, 1);
-% 
-% top = 0.0; bot = 0.0;
-% for ee = 1 : nElem
-%     for qua = 1 : nqp
-%         x_ele = zeros(n_en, 1);
-%         u_ele = zeros(n_en, 1);
-%         for aa = 1 : n_en
-%             x_ele(aa) = x_coor(IEN(aa, ee));
-%             u_ele(aa) = uh(IEN(aa, ee));
-%         end
-%         
-%         x = 0.0; dx_dxi = 0.0; duh_dxi = 0.0;
-%         for aa = 1 : n_en
-%             x = x + x_ele(aa) * PolyBasis(pp, aa, 0, qp(qua));
-%             dx_dxi = dx_dxi + x_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
-%             duh_dxi = duh_dxi + u_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
-%         end
-%         
-%         dxi_dx = 1.0 / dx_dxi;
-%         
-%         top = top + wq(qua) * (duh_dxi * dxi_dx - exact_x(x))^2 * dx_dxi;
-%         bot = bot + wq(qua) * exact_x(x)^2 * dx_dxi;
-%     end
-% end
-% 
-% top = sqrt(top);
-% bot = sqrt(bot);
-% 
-% error = top / bot;
+% Now we do the postprocessing
+nqp = 6;
+[qp, wq] = Gauss(nqp, -1, 1);
+
+top = 0.0; bot = 0.0;
+for ee = 1 : nElem
+    for qua = 1 : nqp
+        x_ele = zeros(n_en, 1);
+        u_ele = zeros(n_en, 1);
+        for aa = 1 : n_en
+            x_ele(aa) = x_coor(IEN(aa, ee));
+            u_ele(aa) = uh(IEN(aa, ee));
+        end
+        
+        x = 0.0; dx_dxi = 0.0; duh_dxi = 0.0;
+        for aa = 1 : n_en
+            x = x + x_ele(aa) * PolyBasis(pp, aa, 0, qp(qua));
+            dx_dxi = dx_dxi + x_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
+            duh_dxi = duh_dxi + u_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
+        end
+        
+        dxi_dx = 1.0 / dx_dxi;
+        
+        top = top + wq(qua) * (duh_dxi * dxi_dx - exact_x(x))^2 * dx_dxi;
+        bot = bot + wq(qua) * exact_x(x)^2 * dx_dxi;
+    end
+end
+
+top = sqrt(top);
+bot = sqrt(bot);
+
+error = top / bot
 
 % EOF
