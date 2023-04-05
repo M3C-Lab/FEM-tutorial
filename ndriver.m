@@ -1,3 +1,4 @@
+% This is the nonlinear solver for heat equation with material nonlinearity
 % clean the memory and the screen
 clear all; clc;
 
@@ -13,8 +14,12 @@ omega_r = 1.0;
 exact = @(x) sin(x);
 exact_x = @(x) cos(x);
 
+% nonlinear kappa
+fun_kappa  = @(x) 1 + x*x;
+fun_dkappa = @(x) 2*x;
+
 f = @(x) -2.0*cos(x)*cos(x)*sin(x) + sin(x)*(sin(x)*sin(x) + 1.0);
-h = @(x) -1.0; %-kappa;
+h = @(x) -1.0 * fun_kappa( exact(0) );
 g = @(x) sin(1);
 % -------------------------------------------------------------------------
 
@@ -53,8 +58,8 @@ ID(end) = 0;
 % Dirichlet nodes
 n_eq = n_np - 1;
 
-uu = zeros(n_eq, 1);
-dd = [ uu; g(omega_r) ];
+% initial guess
+uh = [ zeros(n_eq,1); g(omega_r) ];
 
 counter = 0;
 nmax    = 20;
@@ -75,7 +80,7 @@ while counter < nmax && error > 1.0e-20
     d_ele = zeros(n_en, 1);
     for aa = 1 : n_en
       x_ele(aa) = x_coor( IEN(aa, ee) );
-      d_ele(aa) = dd( IEN(aa, ee) );
+      u_ele(aa) = uh( IEN(aa, ee) );
     end
     
     for qua = 1 : nqp
@@ -87,13 +92,13 @@ while counter < nmax && error > 1.0e-20
       for aa = 1 : n_en
         x_qua    = x_qua  + x_ele(aa) * PolyBasis(pp, aa, 0, qp(qua));
         dx_dxi   = dx_dxi + x_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
-        u_qua    = u_qua  + d_ele(aa) * PolyBasis(pp, aa, 0, qp(qua));
-        u_xi     = u_xi   + d_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
+        u_qua    = u_qua  + u_ele(aa) * PolyBasis(pp, aa, 0, qp(qua));
+        u_xi     = u_xi   + u_ele(aa) * PolyBasis(pp, aa, 1, qp(qua));
       end
       dxi_dx = 1.0 / dx_dxi;
       
-      kappa = 1.0 + u_qua * u_qua;
-      dkappa = 2 * u_qua;
+      kappa = fun_kappa( u_qua );
+      dkappa = fun_dkappa( u_qua );
       
       for aa = 1 : n_en
         Na    = PolyBasis(pp, aa, 0, qp(qua));
@@ -138,15 +143,11 @@ while counter < nmax && error > 1.0e-20
   
   % Solve the stiffness matrix problem
   incremental = K \ F;
-  uu = uu + incremental;
-  dd = [ uu; g(omega_r) ];
+  uh = [ uh(1:end-1) + incremental; g(omega_r) ];
   
   error = norm(F);
   counter = counter + 1;
 end
-
-% Append the displacement vector by the Dirichlet data
-uh = dd;
 
 % Now we do the postprocessing
 nqp = 6;
@@ -179,6 +180,6 @@ end
 top = sqrt(top);
 bot = sqrt(bot);
 
-error = top / bot
+error = top / bot;
 
 % EOF
