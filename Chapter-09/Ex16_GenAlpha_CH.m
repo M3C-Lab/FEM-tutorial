@@ -1,12 +1,12 @@
 % clean the memory and the screen
 clear all; clc; close all;
 
-% Setup the Newmark parameters
-% Central difference: beta = 0, gamma = 0.5
-% Trapezoidal: beta = 0.25, gamma = 0.5
-% Damped Newmark: beta = 0.3025, gamma = 0.6
-beta = 0.25; 
-gamma = 0.5;
+% Setup the alpha parameters
+rho_inf = 0.5;
+alpha_m = (2.0 - rho_inf) / (1.0 + rho_inf);
+alpha_f = 1.0 / (1.0 + rho_inf);
+gamma   = 0.5 - alpha_f + alpha_m;
+beta    = 0.25 * (1.0 - alpha_f + alpha_m)^2;
 
 % Setup the physical problem parameters
 % mass
@@ -50,18 +50,20 @@ d = a;
 
 a(:,1) = a0; v(:,1) = v0; d(:,1) = d0;
 
-% matrix
-LEFT = M + beta * dt * dt * K;
+% Matrix
+LEFT = alpha_m * M + alpha_f * beta * dt * dt * K;
 
 for n = 2 : N+1
-    % predictor
-    d_tilde = d(:,n-1) + dt * v(:,n-1) + 0.5 * dt * dt * (1 - 2 * beta) * a(:, n-1);
-    v_tilde = v(:,n-1) + (1-gamma) * dt * a(:, n-1);
-    
-    a(:,n) = LEFT \ (-K * d_tilde);
-    
-    d(:,n) = d_tilde + beta * dt * dt * a(:,n);
-    v(:,n) = v_tilde + gamma * dt * a(:,n);
+  % predictor
+  d_tilde = d(:,n-1) + dt * v(:,n-1) + 0.5 * dt * dt * (1-2*beta)*a(:,n-1);
+  v_tilde = v(:,n-1) + dt * (1-gamma) * a(:,n-1);
+
+  RIGHT = (alpha_m-1) * M * a(:,n-1) + (alpha_f-1) * K * d(:,n-1) - alpha_f * K * d_tilde;
+
+  a(:,n) = LEFT \ RIGHT;
+
+  d(:,n) = d_tilde + beta * dt*dt * a(:,n);
+  v(:,n) = v_tilde + dt * gamma * a(:,n);
 end
 
 % visualization
