@@ -2,7 +2,12 @@
 clear all; clc; close all;
 
 % Setup the alpha parameters
-rho_inf = 0.5;
+% Convert to Newmark by alpha_m = alpha_f = 1
+% Central difference: beta = 0, gamma = 0.5
+%      conditionally stable: omega dt <= sqrt(6)
+% Trapezoidal: beta = 0.25, gamma = 0.5
+% Damped Newmark: beta = 0.3025, gamma = 0.6
+rho_inf = 1.0;
 alpha_m = (2.0 - rho_inf) / (1.0 + rho_inf);
 alpha_f = 1.0 / (1.0 + rho_inf);
 gamma   = 0.5 - alpha_f + alpha_m;

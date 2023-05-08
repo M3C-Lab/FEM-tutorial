@@ -33,7 +33,7 @@ omega = sqrt(lambda);
 T1 = 2 * pi / omega(1);
 T2 = 2 * pi / omega(2);
 
-dt = T1 / 10;
+dt = T1 / 20;
 
 T_final = 5 * T1;
 
