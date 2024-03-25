@@ -5,7 +5,7 @@ clear all; clc; close all;
 % Central difference: beta = 0, gamma = 0.5
 % Trapezoidal: beta = 0.25, gamma = 0.5
 % Damped Newmark: beta = 0.3025, gamma = 0.6
-beta = 0.25; 
+beta = 0.0; 
 gamma = 0.5;
 
 % Setup the physical problem parameters

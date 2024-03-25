@@ -7,8 +7,8 @@ elseif aa == 2
     val_xi  =  0.25 * (1-eta);
     val_eta = -0.25 * (1+xi);
 elseif aa == 3
-    val_xi  = 0.25 * (1+eta);
-    val_eta = 0.25 * (1+xi);
+    val_xi  =  0.25 * (1+eta);
+    val_eta =  0.25 * (1+xi);
 elseif aa == 4
     val_xi  = -0.25 * (1+eta);
     val_eta =  0.25 * (1-xi);
