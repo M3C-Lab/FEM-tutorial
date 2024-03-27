@@ -13,8 +13,8 @@ kappa = 1.0;
 exact = @(x) sin(x);
 exact_x = @(x) cos(x);
 
-f = @(x) 0.0; %kappa * sin(x);
-h = @(x) 0.0; %-kappa;
+f = @(x) kappa * sin(x);
+h = @(x) -kappa;
 g = @(x) sin(1);
 % -------------------------------------------------------------------------
 
@@ -22,7 +22,7 @@ g = @(x) sin(1);
 pp = 1;
 
 % number of elements
-nElem = 5;
+nElem = 10;
 
 % quadrature rule
 nqp = pp + 1;
